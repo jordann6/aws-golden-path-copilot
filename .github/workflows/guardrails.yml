@@ -1,0 +1,37 @@
+name: Guardrails
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Credential-free by design. Every gate below runs static analysis only; on a
+# pull_request event the code was authored by whoever opened the PR, so nothing
+# here may ever hold a permission that can mint a cloud token.
+#
+# This repo is Python-first (the copilot) with a library of vetted Terraform
+# modules, so it calls the unified ci.yml (auto-detects Python, Terraform, and a
+# Dockerfile) rather than the Terraform-only tf-ci.yml. That adds Bandit and
+# pip-audit over the copilot code on top of the Terraform validate + Checkov +
+# Trivy that a modules-only wiring would give. Findings land in the Security tab.
+#
+# The credentialed gates (plan, destroy guard, cost diff) in tf-plan.yml are
+# deliberately not wired here: they need an OIDC role ARN, and the only apply
+# path this project has is the deploy-demo harness a human runs by hand. See
+# "The credentialed half" in the platform-guardrails README.
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  guardrails:
+    uses: jordann6/platform-guardrails/.github/workflows/ci.yml@v1
+    permissions:
+      contents: read
+      security-events: write
+    # Report-only for now (findings surface in the Security tab without blocking
+    # the merge). Flip to enforce once the repo is clean of pre-existing findings.
+    # with:
+    #   enforce_iac: true
+    #   enforce_sast: true

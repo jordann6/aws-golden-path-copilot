@@ -10,3 +10,18 @@ out/*.pr.md
 *.tfstate.*
 .pytest_cache/
 .DS_Store
+
+# --- platform-guardrails ---
+*.tfvars
+!example.tfvars
+tfplan
+plan.json
+crash.log
+.env
+.envrc
+kubeconfig
+*.kubeconfig
+*.pem
+*.ppk
+.checkov.json
+infracost.json
