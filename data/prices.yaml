@@ -1,0 +1,33 @@
+# Approximate us-east-1 on-demand list prices. Deliberately static so the cost
+# tool produces a deterministic estimate with no network call and no AWS creds.
+# When the `infracost` binary is present, cost.py prefers its output over this
+# table (see copilot/cost.py). Prices are illustrative, not billing-accurate.
+region: us-east-1
+
+# Hourly on-demand USD by instance type.
+instances:
+  # Graviton burstable
+  t4g.micro:   0.0084
+  t4g.small:   0.0168
+  t4g.medium:  0.0336
+  t4g.large:   0.0672
+  # Graviton general purpose
+  m7g.large:   0.0816
+  m7g.xlarge:  0.1632
+  m7g.2xlarge: 0.3264
+  # x86 general purpose (for cost contrast)
+  m7i.large:   0.1008
+  m7i.xlarge:  0.2016
+  # GPU (guarded by policy)
+  g5.xlarge:   1.006
+
+# Per GB-month.
+storage:
+  gp3: 0.08
+  gp2: 0.10
+  s3_standard: 0.023
+
+# RDS multiplier applied on top of the raw instance price (managed-service premium).
+rds_multiplier: 1.15
+
+hours_per_month: 730

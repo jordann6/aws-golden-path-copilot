@@ -1,0 +1,10 @@
+# Core
+anthropic[bedrock]>=0.69
+pyyaml>=6.0
+
+# Web surface (optional)
+fastapi>=0.110
+uvicorn[standard]>=0.29
+
+# Dev
+pytest>=8.0

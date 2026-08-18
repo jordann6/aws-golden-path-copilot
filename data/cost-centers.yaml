@@ -1,0 +1,23 @@
+# Per-team FinOps envelopes. In production this comes from AWS Cost Explorer /
+# a Budgets table keyed by the CostCenter tag; here it is a static seed so the
+# budget gate is demonstrable offline.
+#
+# monthly_budget_usd  : the team's provisioning envelope for the month
+# current_spend_usd   : list-priced spend already committed this month
+# requires_approval   : label needed before over-budget or GPU requests proceed
+teams:
+  checkout:
+    cost_center: CC-1001
+    owner: checkout-platform@example.com
+    monthly_budget_usd: 4000
+    current_spend_usd: 3120
+  data-eng:
+    cost_center: CC-2002
+    owner: data-eng@example.com
+    monthly_budget_usd: 9000
+    current_spend_usd: 4100
+  growth:
+    cost_center: CC-3003
+    owner: growth@example.com
+    monthly_budget_usd: 1500
+    current_spend_usd: 1360

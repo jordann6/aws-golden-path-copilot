@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+out/*.tfvars.json
+out/*.tf
+out/*.pr.md
+.terraform/
+*.tfstate
+*.tfstate.*
+.pytest_cache/
+.DS_Store
