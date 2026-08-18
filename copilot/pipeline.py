@@ -48,11 +48,19 @@ def classify(text: str, team: str) -> tuple[Intent, str]:
     """Best-effort parse of a free-text request into an Intent (offline mode)."""
     t = text.lower()
 
+    # GPU/accelerated intent is detected first: a GPU request is a compute
+    # service regardless of any incidental "storage" word, and it must reach the
+    # approval guardrail rather than being silently classified as a bucket.
+    gpu = any(w in t for w in
+              ["gpu", "cuda", "a100", "h100", "accelerat", "training",
+               "fine-tune", "fine tune", "finetune"])
+
     kind = "service"
-    for k, words in _KIND_WORDS.items():
-        if any(w in t for w in words):
-            kind = k
-            break
+    if not gpu:
+        for k, words in _KIND_WORDS.items():
+            if any(w in t for w in words):
+                kind = k
+                break
 
     environment = "staging"
     for env in ("prod", "production", "staging", "stage", "dev", "development"):
@@ -62,12 +70,14 @@ def classify(text: str, team: str) -> tuple[Intent, str]:
             break
 
     size_gb = 20
-    m = re.search(r"(\d+)\s*(gb|gib|g\b)", t)
-    if m:
-        size_gb = int(m.group(1))
-    elif re.search(r"\bt(b|erab)", t):
-        m2 = re.search(r"(\d+)\s*t", t)
-        size_gb = int(m2.group(1)) * 1000 if m2 else 1000
+    # Terabytes first (e.g. "2TB", "2 tb", "2 terabytes"); a bare number joined
+    # to the unit ("2tb") has no word boundary, so match the digits directly.
+    m_tb = re.search(r"(\d+)\s*(tb|tib|terabytes?)\b", t)
+    m_gb = re.search(r"(\d+)\s*(gb|gib|g\b)", t)
+    if m_tb:
+        size_gb = int(m_tb.group(1)) * 1000
+    elif m_gb:
+        size_gb = int(m_gb.group(1))
 
     # Negation-aware: "not latency critical" / "not latency-sensitive" means NOT sensitive.
     _neg_latency = any(p in t for p in
@@ -87,7 +97,7 @@ def classify(text: str, team: str) -> tuple[Intent, str]:
     intent = Intent(
         kind=kind, environment=environment, size_gb=size_gb,
         latency_sensitive=latency_sensitive, bursty=bursty,
-        stateless=stateless, name=name,
+        stateless=stateless, gpu=gpu, name=name,
     )
     return intent, team
 

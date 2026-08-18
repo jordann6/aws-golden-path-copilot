@@ -30,6 +30,15 @@ def test_prod_service_no_spot():
     assert s.use_spot is False
 
 
+def test_gpu_intent_picks_accelerated_family_not_spot():
+    s = right_size(Intent(kind="service", environment="staging", size_gb=0,
+                          gpu=True, stateless=True, name="trainer"))
+    # A g/p family instance is what build_request keys the GPU policy rule on.
+    assert s.instance_type.startswith("g")
+    # GPU jobs must not run on interruptible spot capacity.
+    assert s.use_spot is False
+
+
 def test_storage_kind_picks_s3():
     s = right_size(Intent(kind="storage", environment="dev", size_gb=500, name="assets"))
     assert s.module == "s3-bucket"

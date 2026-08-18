@@ -22,6 +22,9 @@ _INTENT_SCHEMA = {
         "latency_sensitive": {"type": "boolean"},
         "bursty": {"type": "boolean", "description": "Traffic is spiky rather than steady"},
         "stateless": {"type": "boolean"},
+        "gpu": {"type": "boolean",
+                "description": "Workload needs a GPU (training/inference/CUDA). "
+                               "GPU requests are policy-gated and require approval."},
         "name": {"type": "string", "description": "Short kebab-case name for the workload"},
     },
     "required": ["kind", "environment", "size_gb", "name"],
@@ -94,6 +97,7 @@ def _intent_from(d: dict) -> Intent:
         latency_sensitive=bool(d.get("latency_sensitive", False)),
         bursty=bool(d.get("bursty", False)),
         stateless=bool(d.get("stateless", True)),
+        gpu=bool(d.get("gpu", False)),
         name=d.get("name", d["kind"]),
     )
 

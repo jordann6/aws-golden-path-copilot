@@ -34,6 +34,8 @@ CATALOG = {
 _BURSTABLE = ["t4g.micro", "t4g.small", "t4g.medium", "t4g.large"]
 # Steady-state Graviton general purpose, smallest to largest.
 _STEADY = ["m7g.large", "m7g.xlarge", "m7g.2xlarge"]
+# GPU/accelerated families. Always policy-gated (approval label required).
+_GPU = ["g5.xlarge"]
 # x86 equivalents, used only to quantify the Graviton saving in the rationale.
 _X86_EQUIV = {"m7g.large": "m7i.large", "m7g.xlarge": "m7i.xlarge"}
 
@@ -67,6 +69,7 @@ class Intent:
     latency_sensitive: bool = False
     bursty: bool = False
     stateless: bool = True
+    gpu: bool = False
     name: str = "workload"
 
 
@@ -113,7 +116,15 @@ def right_size(intent: Intent) -> Sizing:
         s.params = {"bucket_name": intent.name, "versioning": True}
         return s
 
-    instance, notes = _pick_instance(intent)
+    if intent.gpu:
+        instance = _GPU[0]
+        notes = [
+            f"GPU workload, so an accelerated instance ({instance}) is selected "
+            f"rather than a general-purpose one. GPU requests are policy-gated and "
+            f"need an approval label before they can proceed."
+        ]
+    else:
+        instance, notes = _pick_instance(intent)
     s.instance_type = instance
     s.rationale.extend(notes)
 
@@ -139,8 +150,10 @@ def right_size(intent: Intent) -> Sizing:
             f"avoid paying for idle time outside working hours."
         )
 
-    # Spot for non-prod stateless services.
-    if intent.kind == "service" and intent.stateless and intent.environment != "prod":
+    # Spot for non-prod stateless services (never for GPU: interruptions would
+    # kill long-running training/inference jobs).
+    if (intent.kind == "service" and intent.stateless
+            and intent.environment != "prod" and not intent.gpu):
         s.use_spot = True
         s.rationale.append(
             "Non-prod stateless service, so Fargate Spot is used for the bulk "
