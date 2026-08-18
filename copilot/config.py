@@ -17,8 +17,9 @@ PRICES_FILE = DATA_DIR / "prices.yaml"
 # Bedrock
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 # Default to Sonnet for the production path (cheaper per call, plenty for this
-# intent-mapping + right-sizing work); override to opus for the hardest cases.
-BEDROCK_MODEL = os.environ.get("BEDROCK_MODEL", "anthropic.claude-sonnet-5")
+# intent-mapping + right-sizing work). Invoked through a cross-region inference
+# profile; override BEDROCK_MODEL to another profile id for other models.
+BEDROCK_MODEL = os.environ.get("BEDROCK_MODEL", "us.anthropic.claude-sonnet-4-6")
 MAX_TOKENS = int(os.environ.get("COPILOT_MAX_TOKENS", "4096"))
 
 # GitOps output
