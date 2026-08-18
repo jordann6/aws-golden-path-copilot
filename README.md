@@ -11,6 +11,16 @@ the cheapest option that still fits the workload. Every deterministic decision
 (module selection, cost, budget, policy) lives in code, and the output is always
 a diff a human reviews before anything is created.
 
+## Architecture
+
+![Golden-Path FinOps Copilot architecture: a developer request drives Claude on Amazon Bedrock, which calls deterministic right-sizing, cost, budget, and OPA/Rego tools to open a reviewed pull request; Terraform applies only on a human merge, provisioning the AWS resources on the right.](docs/architecture.png)
+
+Claude on Bedrock is advisory and sits outside the determinism boundary.
+Everything that actually decides lives in the "decisions in code" cluster, and
+the only output is a reviewed pull request. Terraform applies solely on a human
+merge, which is when the AWS resources on the right come into being. Regenerate
+with `pip install diagrams` (needs Graphviz) and `python3 docs/architecture.py`.
+
 ## The flow
 
 ```
