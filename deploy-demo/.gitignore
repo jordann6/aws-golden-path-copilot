@@ -1,0 +1,6 @@
+# Runtime-only: a rendered request is copied in here to apply, never committed.
+*.auto.tfvars.json
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*

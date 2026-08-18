@@ -26,6 +26,9 @@ resource "aws_db_instance" "this" {
   deletion_protection = var.deletion_protection
   skip_final_snapshot = var.environment != "prod"
 
+  db_subnet_group_name   = var.db_subnet_group_name
+  vpc_security_group_ids  = var.vpc_security_group_ids
+
   # Credentials come from Secrets Manager in the real module; omitted here.
   manage_master_user_password = true
   username                    = "app"

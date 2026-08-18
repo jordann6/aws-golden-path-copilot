@@ -48,3 +48,15 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "db_subnet_group_name" {
+  type        = string
+  default     = null
+  description = "DB subnet group to launch into. When null, RDS uses the account default (which requires default subnets to exist)."
+}
+
+variable "vpc_security_group_ids" {
+  type        = list(string)
+  default     = null
+  description = "Security groups to attach. When null, RDS uses the default VPC security group."
+}
