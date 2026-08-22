@@ -13,11 +13,13 @@ output is a reviewed pull request. Terraform applies solely on a human merge,
 which is when the AWS resources on the right come into being.
 """
 from diagrams import Cluster, Diagram, Edge
+from diagrams.aws.compute import EC2, EC2ImageBuilder
 from diagrams.aws.database import RDS
 from diagrams.aws.ml import Bedrock
 from diagrams.aws.network import VPC
 from diagrams.aws.security import SecretsManager
 from diagrams.generic.blank import Blank
+from diagrams.generic.network import Firewall
 from diagrams.onprem.client import User
 from diagrams.onprem.iac import Terraform
 from diagrams.onprem.vcs import Github
@@ -47,21 +49,27 @@ with Diagram(
 
     with Cluster("Decisions in code (no LLM authority)"):
         right_size = Blank("right_size\ncheapest that fits")
-        estimate = Blank("estimate_cost\nInfracost · static fallback")
+        estimate = Blank("estimate_cost\nregion-aware · Infracost")
         budget = Blank("check_budget\nteam envelope")
-        opa = Blank("OPA / Rego gate\ndeny tags · GPU · over budget")
+        opa = Blank("OPA / Rego gate\ntags · GPU · budget · host posture")
         right_size >> Edge(color="darkgreen") >> estimate >> Edge(color="darkgreen") >> budget >> Edge(color="darkgreen") >> opa
 
     pr = Github("Pull Request\ntfvars · cost · rationale")
     terraform = Terraform("Terraform\napplies on human merge")
 
-    with Cluster("Provisioned AWS (deploy-demo receipt)"):
+    with Cluster("Provisioned AWS (deploy-demo receipts)"):
         rds = RDS("RDS Postgres\nencrypted · private")
         secrets = SecretsManager("Secrets Manager\nmanaged password")
         vpc = VPC("VPC\nprivate subnets")
+        ec2 = EC2("Hardened EC2\nIMDSv2 · no public IP")
+        image_builder = EC2ImageBuilder("Image Builder\nCIS golden AMI")
+        firewall = Firewall("Palo Alto VM-Series\negress inspection")
 
     dev >> bedrock >> Edge(label="tool use") >> right_size
     opa >> Edge(label="reviewed diff") >> pr >> Edge(label="human merge") >> terraform
     terraform >> Edge(color="darkorange") >> rds
     terraform >> Edge(color="darkorange") >> secrets
     terraform >> Edge(color="darkorange") >> vpc
+    terraform >> Edge(color="darkorange") >> ec2
+    image_builder >> Edge(label="golden AMI", style="dashed") >> ec2
+    ec2 >> Edge(label="egress", color="darkred") >> firewall
