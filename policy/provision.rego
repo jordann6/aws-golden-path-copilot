@@ -52,5 +52,34 @@ deny contains msg if {
 	msg := "production databases must have deletion protection enabled"
 }
 
+# --- Hardened compute (EC2 golden path) ------------------------------------
+# A compute request must be a private, IMDSv2-only, firewall-inspected host
+# launched from a CIS-hardened AMI. The copilot sets these by construction; the
+# gate re-checks them so a hand-edited request cannot smuggle a soft host in.
+
+deny contains msg if {
+	input.kind == "compute"
+	input.public_ip == true
+	msg := "compute instances must not have a public IP (private subnet + SSM only)"
+}
+
+deny contains msg if {
+	input.kind == "compute"
+	input.imdsv2 == false
+	msg := "compute instances must require IMDSv2"
+}
+
+deny contains msg if {
+	input.kind == "compute"
+	input.firewall_inspected == false
+	msg := "compute egress must be routed through the shared firewall for inspection"
+}
+
+deny contains msg if {
+	input.kind == "compute"
+	input.hardened_ami == false
+	msg := "compute must launch from a hardened (CIS) golden AMI"
+}
+
 # Convenience rule: overall pass/fail.
 allow if count(deny) == 0

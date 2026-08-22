@@ -1,10 +1,32 @@
-# Approximate us-east-1 on-demand list prices. Deliberately static so the cost
-# tool produces a deterministic estimate with no network call and no AWS creds.
-# When the `infracost` binary is present, cost.py prefers its output over this
-# table (see copilot/cost.py). Prices are illustrative, not billing-accurate.
-region: us-east-1
+# Approximate on-demand list prices. Deliberately static so the cost tool
+# produces a deterministic estimate with no network call and no AWS creds.
+# When the `infracost` binary is present, cost.py prefers its (region-accurate)
+# output over this table (see copilot/cost.py). Prices are illustrative, not
+# billing-accurate.
+#
+# The instance/storage tables below are priced in the base region; other
+# regions are derived with a per-region multiplier (a common FinOps rule of
+# thumb, since regional deltas are broadly proportional across families).
+base_region: us-east-1
 
-# Hourly on-demand USD by instance type.
+# Regional cost multipliers applied to the base-region prices below. An unknown
+# region falls back to 1.0 (base-region pricing) and is flagged in the estimate.
+region_multipliers:
+  us-east-1:      1.00
+  us-east-2:      1.00
+  us-west-2:      1.00
+  us-west-1:      1.08
+  ca-central-1:   1.05
+  eu-west-1:      1.06
+  eu-west-2:      1.07
+  eu-central-1:   1.10
+  ap-southeast-1: 1.12
+  ap-southeast-2: 1.14
+  ap-northeast-1: 1.14
+  ap-south-1:     1.09
+  sa-east-1:      1.28
+
+# Hourly on-demand USD by instance type (base region).
 instances:
   # Graviton burstable
   t4g.micro:   0.0084
@@ -21,7 +43,7 @@ instances:
   # GPU (guarded by policy)
   g5.xlarge:   1.006
 
-# Per GB-month.
+# Per GB-month (base region).
 storage:
   gp3: 0.08
   gp2: 0.10

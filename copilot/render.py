@@ -28,12 +28,13 @@ def build_request(intent: Intent, sizing: Sizing, budget: BudgetResult,
                   approval_label: bool = False) -> dict:
     """The canonical JSON the OPA policy evaluates."""
     gpu = sizing.instance_type.startswith("g") or sizing.instance_type.startswith("p")
-    return {
+    req = {
         "kind": intent.kind,
         "environment": intent.environment,
         "module": sizing.module,
         "instance_type": sizing.instance_type,
         "storage_class": sizing.storage_class,
+        "region": intent.region,
         "encrypted": True,  # golden-path modules always encrypt
         "deletion_protection": sizing.deletion_protection,
         "gpu": gpu,
@@ -45,6 +46,13 @@ def build_request(intent: Intent, sizing: Sizing, budget: BudgetResult,
             "Environment": intent.environment,
         },
     }
+    if intent.kind == "compute":
+        # Hardened-host posture the policy gate re-verifies (defence in depth).
+        req["public_ip"] = sizing.public_ip
+        req["imdsv2"] = sizing.imdsv2_required
+        req["firewall_inspected"] = sizing.firewall_inspected
+        req["hardened_ami"] = sizing.hardened_ami
+    return req
 
 
 def _python_policy_fallback(req: dict) -> PolicyResult:
@@ -62,6 +70,15 @@ def _python_policy_fallback(req: dict) -> PolicyResult:
     if (req["environment"] == "prod" and req["kind"] == "database"
             and not req["deletion_protection"]):
         v.append("production databases must have deletion protection enabled")
+    if req["kind"] == "compute":
+        if req.get("public_ip"):
+            v.append("compute instances must not have a public IP (private subnet + SSM only)")
+        if not req.get("imdsv2"):
+            v.append("compute instances must require IMDSv2")
+        if not req.get("firewall_inspected"):
+            v.append("compute egress must be routed through the shared firewall for inspection")
+        if not req.get("hardened_ami"):
+            v.append("compute must launch from a hardened (CIS) golden AMI")
     return PolicyResult(passed=not v, violations=v, engine="python-fallback")
 
 
@@ -142,6 +159,7 @@ def render(intent: Intent, sizing: Sizing, cost: CostEstimate, budget: BudgetRes
     tfvars = {
         "name": intent.name,
         "environment": intent.environment,
+        "region": intent.region,
         **sizing.params,
         "tags": {
             "CostCenter": budget.cost_center,

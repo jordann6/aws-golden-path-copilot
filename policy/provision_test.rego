@@ -56,3 +56,47 @@ test_prod_db_without_deletion_protection_denied if {
 	req := object.union(base_request, {"deletion_protection": false})
 	count(deny) > 0 with input as req
 }
+
+# --- Hardened compute fixtures ---------------------------------------------
+# A fully-valid hardened-EC2 request the gate must pass, plus one break per rule.
+
+base_compute := {
+	"kind": "compute",
+	"environment": "staging",
+	"module": "ec2",
+	"instance_type": "t4g.medium",
+	"encrypted": true,
+	"deletion_protection": false,
+	"gpu": false,
+	"approval_label": false,
+	"budget_verdict": "ok",
+	"public_ip": false,
+	"imdsv2": true,
+	"firewall_inspected": true,
+	"hardened_ami": true,
+	"tags": {"CostCenter": "CC-1001", "Owner": "team@example.com", "Environment": "staging"},
+}
+
+test_base_compute_passes if {
+	count(deny) == 0 with input as base_compute
+}
+
+test_compute_public_ip_denied if {
+	req := object.union(base_compute, {"public_ip": true})
+	count(deny) > 0 with input as req
+}
+
+test_compute_without_imdsv2_denied if {
+	req := object.union(base_compute, {"imdsv2": false})
+	count(deny) > 0 with input as req
+}
+
+test_compute_without_firewall_denied if {
+	req := object.union(base_compute, {"firewall_inspected": false})
+	count(deny) > 0 with input as req
+}
+
+test_compute_without_hardened_ami_denied if {
+	req := object.union(base_compute, {"hardened_ami": false})
+	count(deny) > 0 with input as req
+}

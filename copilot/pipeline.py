@@ -18,7 +18,7 @@ def run(intent: Intent, team: str, approval_label: bool = False,
         open_pr: bool = False, request_id: str | None = None) -> dict:
     request_id = request_id or f"{intent.name}-{uuid.uuid4().hex[:8]}"
     sizing = right_size(intent)
-    cost = estimate_cost(sizing, intent.kind)
+    cost = estimate_cost(sizing, intent.kind, region=intent.region)
     budget = check_budget(team, cost.monthly_usd)
     req = build_request(intent, sizing, budget, approval_label)
     policy: PolicyResult = run_policy(req)
@@ -40,6 +40,10 @@ def run(intent: Intent, team: str, approval_label: bool = False,
 _KIND_WORDS = {
     "database": ["database", "db", "postgres", "mysql", "rds", "sql"],
     "storage": ["bucket", "s3", "object store", "storage", "blob"],
+    # Hardened VM / firewall-inspected host signals. Checked before "service" so
+    # "an EC2 behind Palo Alto" maps to the compute golden path, not ECS.
+    "compute": ["ec2", "virtual machine", "hardened", "bastion", "palo alto",
+                "firewall", "vm-series", "golden ami", "instance host"],
     "service": ["service", "api", "app", "container", "ecs", "microservice", "worker"],
 }
 
@@ -89,6 +93,11 @@ def classify(text: str, team: str) -> tuple[Intent, str]:
     bursty = any(w in t for w in ["bursty", "burst", "spiky", "daytime", "intermittent"])
     stateless = "stateful" not in t
 
+    # Region: match an AWS region slug (e.g. us-west-2, eu-central-1); default
+    # to us-east-1 so the cost estimate is region-aware.
+    m_region = re.search(r"\b([a-z]{2}-[a-z]+-\d)\b", t)
+    region = m_region.group(1) if m_region else "us-east-1"
+
     name = re.sub(r"[^a-z0-9-]+", "-",
                   (re.search(r"for (?:a |an |the )?([a-z0-9 -]{3,30})", t) or
                    re.match(r"", "")).group(1) if re.search(r"for ", t) else kind
@@ -97,7 +106,7 @@ def classify(text: str, team: str) -> tuple[Intent, str]:
     intent = Intent(
         kind=kind, environment=environment, size_gb=size_gb,
         latency_sensitive=latency_sensitive, bursty=bursty,
-        stateless=stateless, gpu=gpu, name=name,
+        stateless=stateless, gpu=gpu, region=region, name=name,
     )
     return intent, team
 

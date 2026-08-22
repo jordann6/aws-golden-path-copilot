@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-WorkloadKind = Literal["database", "service", "storage"]
+WorkloadKind = Literal["database", "service", "storage", "compute"]
 Environment = Literal["dev", "staging", "prod"]
 
 # The catalog: each entry maps to a vetted Terraform module under modules/.
@@ -27,6 +27,13 @@ CATALOG = {
     "storage": {
         "module": "s3-bucket",
         "description": "Encrypted, versioned S3 bucket with public access blocked.",
+    },
+    "compute": {
+        "module": "ec2",
+        "description": "Hardened EC2 host: CIS-hardened AMI baked by the in-repo "
+                       "EC2 Image Builder pipeline, IMDSv2-only, no public IP, "
+                       "SSM access, egress inspected by the shared Palo Alto "
+                       "VM-Series firewall.",
     },
 }
 
@@ -54,6 +61,11 @@ class Sizing:
     auto_stop: bool = False
     deletion_protection: bool = False
     multi_az: bool = False
+    # Hardened-compute posture (kind == "compute"); golden-path constants.
+    public_ip: bool = False
+    imdsv2_required: bool = False
+    firewall_inspected: bool = False
+    hardened_ami: bool = False
     rationale: list[str] = field(default_factory=list)
     cheaper_alternative: str | None = None
     params: dict = field(default_factory=dict)
@@ -70,6 +82,7 @@ class Intent:
     bursty: bool = False
     stateless: bool = True
     gpu: bool = False
+    region: str = "us-east-1"
     name: str = "workload"
 
 
@@ -160,6 +173,27 @@ def right_size(intent: Intent) -> Sizing:
             "of capacity (interruptible, ~70% cheaper)."
         )
 
+    # Hardened compute posture. These are golden-path constants, not knobs the
+    # requester can turn off; the policy gate re-checks them (defence in depth).
+    if intent.kind == "compute":
+        s.public_ip = False
+        s.imdsv2_required = True
+        s.firewall_inspected = True
+        s.hardened_ami = True
+        s.rationale.append(
+            "Hardened host: CIS-hardened AMI baked by the in-repo EC2 Image "
+            "Builder pipeline (modules/image-builder); IMDSv2 required, root EBS "
+            "encrypted (gp3/KMS)."
+        )
+        s.rationale.append(
+            "No public IP; launched in a private subnet with SSM Session Manager "
+            "for access (no inbound SSH)."
+        )
+        s.rationale.append(
+            "Egress routed through the shared Palo Alto VM-Series firewall for "
+            "inspection (0.0.0.0/0 -> firewall route target)."
+        )
+
     # Offer the next tier down as a cheaper alternative when the request looks
     # over-provisioned for a non-prod environment.
     if intent.environment != "prod" and instance in _STEADY:
@@ -181,4 +215,14 @@ def right_size(intent: Intent) -> Sizing:
     }
     if intent.kind == "database":
         s.params["engine"] = CATALOG["database"]["engine"]
+    if intent.kind == "compute":
+        s.params.update({
+            "public_ip": s.public_ip,
+            "imdsv2_required": s.imdsv2_required,
+            "firewall_inspected": s.firewall_inspected,
+            "hardened_ami": s.hardened_ami,
+            # AMI id is published to SSM by the Image Builder pipeline; the ec2
+            # module reads it so hosts always launch from the latest golden AMI.
+            "ami_ssm_parameter": f"/golden-path/ami/{intent.environment}/al2023-cis",
+        })
     return s

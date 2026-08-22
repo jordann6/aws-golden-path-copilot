@@ -16,9 +16,15 @@ from . import pipeline
 _INTENT_SCHEMA = {
     "type": "object",
     "properties": {
-        "kind": {"type": "string", "enum": ["database", "service", "storage"]},
+        "kind": {"type": "string", "enum": ["database", "service", "storage", "compute"],
+                 "description": "compute = a hardened EC2 host (CIS golden AMI, "
+                                "IMDSv2-only, no public IP, egress via the shared "
+                                "Palo Alto VM-Series firewall)."},
         "environment": {"type": "string", "enum": ["dev", "staging", "prod"]},
         "size_gb": {"type": "integer", "description": "Approximate storage size in GB"},
+        "region": {"type": "string",
+                   "description": "AWS region slug (e.g. us-east-1, eu-west-1). "
+                                  "Cost is estimated with region-aware pricing."},
         "latency_sensitive": {"type": "boolean"},
         "bursty": {"type": "boolean", "description": "Traffic is spiky rather than steady"},
         "stateless": {"type": "boolean"},
@@ -98,6 +104,7 @@ def _intent_from(d: dict) -> Intent:
         bursty=bool(d.get("bursty", False)),
         stateless=bool(d.get("stateless", True)),
         gpu=bool(d.get("gpu", False)),
+        region=d.get("region", "us-east-1"),
         name=d.get("name", d["kind"]),
     )
 
@@ -114,7 +121,7 @@ def dispatch(name: str, tool_input: dict) -> dict:
     if name == "estimate_cost":
         intent = _intent_from(tool_input)
         sizing = right_size(intent)
-        return asdict(estimate_cost(sizing, intent.kind))
+        return asdict(estimate_cost(sizing, intent.kind, region=intent.region))
 
     if name == "check_budget":
         res = check_budget(tool_input["team"], float(tool_input["monthly_estimate_usd"]))

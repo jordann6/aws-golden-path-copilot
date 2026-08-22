@@ -80,7 +80,7 @@ More examples: [`examples/requests.md`](examples/requests.md).
 | `copilot/cost.py` | Cost estimate (Infracost if present, else static table) |
 | `copilot/budget.py` | Budget gate vs `data/cost-centers.yaml` |
 | `copilot/render.py` | Policy gate + tfvars/PR rendering |
-| `modules/` | Vetted Terraform modules (rds, ecs-service, s3-bucket) |
+| `modules/` | Vetted Terraform modules (rds, ecs-service, s3-bucket, ec2, image-builder) |
 | `policy/provision.rego` | OPA policy + fireable fixtures (`provision_test.rego`) |
 | `web/` | FastAPI chat surface |
 
@@ -92,6 +92,24 @@ More examples: [`examples/requests.md`](examples/requests.md).
 - Nightly auto-stop for non-prod
 - gp3 over gp2, KMS encryption always on
 - Prod gets Multi-AZ, deletion protection, min capacity 2; never auto-stop
+- Region-aware cost: estimates scale by a per-region multiplier (`data/prices.yaml`), so `eu-central-1` reads ~10% over `us-east-1`
+
+## Hardened compute golden path (`kind: compute`)
+
+Asking for an EC2 host ("a hardened EC2 bastion for staging in eu-central-1
+behind Palo Alto") maps to `modules/ec2`, and the copilot enforces a fixed
+posture: **CIS-hardened AMI** baked by the in-repo EC2 Image Builder pipeline
+(`modules/image-builder`), **IMDSv2 required**, **no public IP** (private subnet
++ SSM Session Manager, no inbound SSH), encrypted gp3 root, and **all egress
+routed through the shared Palo Alto VM-Series firewall** for inspection. Those
+are not knobs the requester can turn off: the OPA gate re-checks every one of
+them, so a hand-edited request that flips on a public IP or a soft AMI is denied
+(see the `compute` fixtures in `provision_test.rego`).
+
+The firewall is *referenced*, not provisioned: the module takes the shared
+firewall's ENI as `firewall_route_target` and writes the `0.0.0.0/0` route to
+it. Standing up the appliance itself would blow the budget on purpose and trip
+the approval gate.
 
 ## Configuration
 
