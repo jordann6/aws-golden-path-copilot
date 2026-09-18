@@ -12,6 +12,7 @@ from .budget import check as check_budget
 from .catalog import Intent, right_size
 from .cost import estimate as estimate_cost
 from . import pipeline
+from . import reclaim
 
 _INTENT_SCHEMA = {
     "type": "object",
@@ -92,6 +93,42 @@ TOOLS = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "list_waste_findings",
+        "description": "List idle-spend findings from the cost dashboard "
+                       "(unattached EBS, gp2 volumes, stray Elastic IPs), each with "
+                       "an estimated monthly cost and whether reclaiming it is "
+                       "destructive. Call this to see what can be cleaned up. "
+                       "Optionally pass the dashboard's /waste URL as source.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "source": {"type": "string",
+                           "description": "Optional http(s) URL of the dashboard "
+                                          "/waste endpoint. Omit to use local findings."},
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "remediate_waste",
+        "description": "Terminal step for cleanup. Turns waste findings into a "
+                       "reviewed cleanup pull request (never a direct apply). "
+                       "Untagged waste and destructive actions are held unless a "
+                       "human approves; safe actions (gp2->gp3) ship immediately.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "source": {"type": "string"},
+                "approval_label": {
+                    "type": "boolean",
+                    "description": "Set only if a human approved the destructive "
+                                   "deletions out of band. Do not set this yourself.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
 ]
 
 
@@ -135,5 +172,21 @@ def dispatch(name: str, tool_input: dict) -> dict:
             approval_label=bool(tool_input.get("approval_label", False)),
             open_pr=tool_input.get("open_pr", False),
         )
+
+    if name == "list_waste_findings":
+        rems = reclaim.build(tool_input.get("source"), approval_label=False)
+        return {
+            "findings": [asdict(r) for r in rems],
+            "reclaimable_now_usd": round(
+                sum(r.monthly_savings_usd for r in rems if not r.blocked), 2),
+            "potential_usd": round(sum(r.monthly_savings_usd for r in rems), 2),
+        }
+
+    if name == "remediate_waste":
+        rems = reclaim.build(
+            tool_input.get("source"),
+            approval_label=bool(tool_input.get("approval_label", False)),
+        )
+        return reclaim.render(rems, open_pr=tool_input.get("open_pr", False))
 
     return {"error": f"unknown tool: {name}"}

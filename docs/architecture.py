@@ -47,12 +47,15 @@ with Diagram(
     dev = User("Developer\nplain-language request")
     bedrock = Bedrock("Claude on Bedrock\ndrives tool loop · IAM/SigV4")
 
+    dashboard = Blank("Cost Dashboard /waste\nidle-spend findings")
+
     with Cluster("Decisions in code (no LLM authority)"):
         right_size = Blank("right_size\ncheapest that fits")
         estimate = Blank("estimate_cost\nregion-aware · Infracost")
         budget = Blank("check_budget\nteam envelope")
         opa = Blank("OPA / Rego gate\ntags · GPU · budget · host posture")
         right_size >> Edge(color="darkgreen") >> estimate >> Edge(color="darkgreen") >> budget >> Edge(color="darkgreen") >> opa
+        reclaim = Blank("reclaim\nCostCenter + approval gates\ncleanup, never apply")
 
     pr = Github("Pull Request\ntfvars · cost · rationale")
     terraform = Terraform("Terraform\napplies on human merge")
@@ -66,6 +69,8 @@ with Diagram(
         firewall = Firewall("Palo Alto VM-Series\negress inspection")
 
     dev >> bedrock >> Edge(label="tool use") >> right_size
+    dashboard >> Edge(label="findings", color="darkblue") >> reclaim
+    reclaim >> Edge(label="cleanup diff", color="darkblue") >> pr
     opa >> Edge(label="reviewed diff") >> pr >> Edge(label="human merge") >> terraform
     terraform >> Edge(color="darkorange") >> rds
     terraform >> Edge(color="darkorange") >> secrets

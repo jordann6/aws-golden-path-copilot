@@ -1,0 +1,34 @@
+[
+  {
+    "resource_type": "unattached_ebs",
+    "resource_id": "vol-0a1b2c3d4e5f60011",
+    "region": "us-east-1",
+    "monthly_cost_usd": 8.0,
+    "reason": "100GB gp3 volume unattached for 21 days",
+    "tags": { "CostCenter": "cc-1001", "Owner": "checkout-platform", "Environment": "dev" }
+  },
+  {
+    "resource_type": "gp2_volume",
+    "resource_id": "vol-0a1b2c3d4e5f60022",
+    "region": "us-east-1",
+    "monthly_cost_usd": 2.0,
+    "reason": "200GB gp2 volume; gp3 is ~20% cheaper at equal performance",
+    "tags": { "CostCenter": "cc-2002", "Owner": "data-eng", "Environment": "staging" }
+  },
+  {
+    "resource_type": "unassociated_eip",
+    "resource_id": "eipalloc-0a1b2c3d4e5f60033",
+    "region": "us-east-1",
+    "monthly_cost_usd": 3.6,
+    "reason": "Elastic IP allocated but not associated with any instance",
+    "tags": { "CostCenter": "cc-3003", "Owner": "growth", "Environment": "dev" }
+  },
+  {
+    "resource_type": "unattached_ebs",
+    "resource_id": "vol-0a1b2c3d4e5f60044",
+    "region": "us-west-2",
+    "monthly_cost_usd": 12.0,
+    "reason": "150GB gp3 volume unattached for 40 days",
+    "tags": {}
+  }
+]

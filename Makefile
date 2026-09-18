@@ -1,4 +1,4 @@
-.PHONY: help install test policy demo web fmt clean deploy destroy
+.PHONY: help install test policy demo reclaim online web fmt clean deploy destroy
 
 TEAM ?= checkout
 REQ  ?= I need a Postgres for a staging service, ~50GB, bursty daytime traffic, not latency critical
@@ -8,6 +8,7 @@ help:
 	@echo "test      run unit tests + OPA policy tests"
 	@echo "policy    run the OPA policy tests only"
 	@echo "demo      run the pipeline offline (no Bedrock)  REQ=... TEAM=..."
+	@echo "reclaim   turn waste findings into a cleanup PR (offline)"
 	@echo "online    run the Bedrock tool-use loop          REQ=... TEAM=..."
 	@echo "web       serve the chat UI at :8000"
 	@echo "clean     remove rendered artifacts"
@@ -27,6 +28,11 @@ policy:
 
 demo:
 	python -m copilot "$(REQ)" --team $(TEAM) --offline
+
+reclaim:
+	python -m copilot --reclaim
+	@echo "--- with destructive actions approved: ---"
+	python -m copilot --reclaim --approve
 
 online:
 	python -m copilot "$(REQ)" --team $(TEAM)

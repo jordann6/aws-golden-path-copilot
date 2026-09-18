@@ -25,3 +25,4 @@ kubeconfig
 *.ppk
 .checkov.json
 infracost.json
+out/*.sh

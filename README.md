@@ -39,6 +39,29 @@ with `pip install diagrams` (needs Graphviz) and `python3 docs/architecture.py`.
   render       →  tfvars + module call + PR body  →  Pull Request (not apply)
 ```
 
+## Closing the loop: waste reclamation
+
+Provisioning is the *inform-and-prevent* half. The other half is acting on spend
+that already exists. The cost intelligence dashboard *detects* idle spend
+(unattached EBS, gp2 volumes, stray Elastic IPs); this copilot *acts* on it
+through the same determinism boundary, via `list_waste_findings` and
+`remediate_waste` (or `make reclaim` offline). Findings come from a local fixture
+or, with `--source <dashboard>/waste`, straight from the live dashboard endpoint.
+
+The output is a cleanup pull request with a reviewable script, never an apply,
+held behind two deterministic gates:
+
+- **Unattributed waste is never auto-remediated.** A finding with no `CostCenter`
+  tag is listed but held, so a human decides. Same tagging discipline the
+  guardrails enforce at provision time, applied here at the point of action.
+- **Destructive actions need an approval label.** Deleting a volume or releasing
+  an address waits for approval; the safe, reversible action (gp2 → gp3) ships
+  immediately. The model surfaces what is held and why, and never sets the
+  approval label itself.
+
+That connects two repos into one lifecycle: the dashboard says *what* is being
+wasted, and the copilot opens the reviewed PR that reclaims it.
+
 ## Why it holds up
 
 The obvious question is "why an LLM instead of a Backstage form?" The form is
@@ -57,6 +80,9 @@ make install
 # Deterministic pipeline, no Bedrock call, works in CI with no AWS creds:
 make demo
 make demo REQ="production postgres, 300GB, low latency" TEAM=data-eng
+
+# Close the loop: turn cost-dashboard waste findings into a cleanup PR:
+make reclaim
 
 # The real Bedrock tool-use loop (needs AWS creds + Bedrock model access):
 make online

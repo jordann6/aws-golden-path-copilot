@@ -3,6 +3,8 @@
     python -m copilot "I need a Postgres for staging, ~50GB, bursty" --team checkout
     python -m copilot "..." --team checkout --offline     # no Bedrock call
     python -m copilot "..." --team checkout --open-pr      # open a real PR
+    python -m copilot --reclaim                            # cleanup PR from waste
+    python -m copilot --reclaim --source https://api/.../waste --approve
 """
 from __future__ import annotations
 
@@ -11,6 +13,7 @@ import json
 import sys
 
 from . import pipeline
+from . import reclaim
 
 
 def _print_plan(result: dict) -> None:
@@ -42,17 +45,45 @@ def _print_plan(result: dict) -> None:
     print()
 
 
+def _print_reclaim(result: dict) -> None:
+    print(f"\n  request:   {result['request_id']}")
+    print(f"  reclaim:   ~${result['monthly_savings_usd']:.2f}/mo now  "
+          f"(potential ~${result['potential_savings_usd']:.2f}/mo)")
+    print(f"  actions:   {result['actionable']} actionable, {result['held']} held")
+    print("\n  artifacts:")
+    for k in ("pr_body", "script", "pr_url"):
+        if result.get(k):
+            print(f"    {k}: {result[k]}")
+    print()
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="copilot", description=__doc__)
-    p.add_argument("request", help="Plain-language description of the resource")
-    p.add_argument("--team", required=True, help="Requesting team (cost center key)")
+    p.add_argument("request", nargs="?", help="Plain-language description of the resource")
+    p.add_argument("--team", help="Requesting team (cost center key)")
     p.add_argument("--offline", action="store_true",
                    help="Skip Bedrock; use the keyword classifier")
     p.add_argument("--open-pr", action="store_true", help="Open a real PR via gh")
     p.add_argument("--approve", action="store_true",
-                   help="Attach an approval label (over-budget/GPU override)")
+                   help="Attach an approval label (over-budget/GPU/destructive override)")
+    p.add_argument("--reclaim", action="store_true",
+                   help="Reclaim idle spend from waste findings into a cleanup PR")
+    p.add_argument("--source",
+                   help="Waste findings source: a file path or the dashboard /waste URL")
     p.add_argument("--json", action="store_true", help="Emit raw JSON")
     args = p.parse_args(argv)
+
+    if args.reclaim:
+        rems = reclaim.build(args.source, approval_label=args.approve)
+        result = reclaim.render(rems, open_pr=args.open_pr)
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            _print_reclaim(result)
+        return 0
+
+    if not args.request or not args.team:
+        p.error("request and --team are required unless --reclaim is used")
 
     if args.offline:
         intent, team = pipeline.classify(args.request, args.team)
