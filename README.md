@@ -72,6 +72,27 @@ policy; the model's output is always reviewable as a diff. On Bedrock the model
 call authenticates with IAM (SigV4), so there is no API key to store or leak,
 which is itself on-brand for a FinOps/guardrails project.
 
+## What broke along the way
+
+1. **A GPU request was silently provisioned as a storage bucket.** The offline
+   classifier keyed on the first matching keyword, so "gpu training box, 2TB
+   storage" became an S3 bucket and never reached the GPU approval rule. That
+   rule was unreachable from the offline path entirely. GPU intent is now
+   detected first, right-sized to a `g5.xlarge`, kept off Spot so an
+   interruption cannot kill a training job, and the flag is threaded through
+   the Bedrock tool schema so both paths gate the same way.
+2. **"2tb" quietly became 20 GB.** The size parser required a word boundary
+   before the unit, and "2tb" has none, so every terabyte request fell back to
+   the default. The parser now matches the digits directly against `tb`, `tib`
+   and `terabytes`.
+3. **The preview Bedrock client rejected newer models.** The Mantle preview
+   client only recognized one generation of model ids. The copilot moved to the
+   standard `AnthropicBedrock` client with a cross-region inference profile, and
+   the model id guard now accepts region-prefixed profile ids.
+
+The first two are the reason the deterministic half has unit tests: both
+failures produced a plausible, wrong pull request rather than an error.
+
 ## Run it
 
 ```bash
