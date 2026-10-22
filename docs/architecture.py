@@ -13,16 +13,23 @@ output is a reviewed pull request. Terraform applies solely on a human merge,
 which is when the AWS resources on the right come into being.
 """
 from diagrams import Cluster, Diagram, Edge
+import os
+
 from diagrams.aws.compute import EC2, EC2ImageBuilder
+from diagrams.aws.cost import Budgets, CostExplorer
 from diagrams.aws.database import RDS
 from diagrams.aws.ml import Bedrock
 from diagrams.aws.network import VPC
 from diagrams.aws.security import SecretsManager
-from diagrams.generic.blank import Blank
+from diagrams.custom import Custom
 from diagrams.generic.network import Firewall
 from diagrams.onprem.client import User
 from diagrams.onprem.iac import Terraform
 from diagrams.onprem.vcs import Github
+from diagrams.programming.language import Python
+
+# The library has no OPA node, so use the official CNCF OPA icon as a custom node.
+OPA_ICON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons", "opa.png")
 
 graph_attr = {
     "fontsize": "16",
@@ -47,15 +54,15 @@ with Diagram(
     dev = User("Developer\nplain-language request")
     bedrock = Bedrock("Claude on Bedrock\ndrives tool loop · IAM/SigV4")
 
-    dashboard = Blank("Cost Dashboard /waste\nidle-spend findings")
+    dashboard = CostExplorer("Cost Dashboard /waste\nidle-spend findings")
 
     with Cluster("Decisions in code (no LLM authority)"):
-        right_size = Blank("right_size\ncheapest that fits")
-        estimate = Blank("estimate_cost\nregion-aware · Infracost")
-        budget = Blank("check_budget\nteam envelope")
-        opa = Blank("OPA / Rego gate\ntags · GPU · budget · host posture")
+        right_size = Python("right_size\ncheapest that fits")
+        estimate = CostExplorer("estimate_cost\nregion-aware · Infracost")
+        budget = Budgets("check_budget\nteam envelope")
+        opa = Custom("OPA / Rego gate\ntags · GPU · budget · host posture", OPA_ICON)
         right_size >> Edge(color="darkgreen") >> estimate >> Edge(color="darkgreen") >> budget >> Edge(color="darkgreen") >> opa
-        reclaim = Blank("reclaim\nCostCenter + approval gates\ncleanup, never apply")
+        reclaim = Python("reclaim\nCostCenter + approval gates\ncleanup, never apply")
 
     pr = Github("Pull Request\ntfvars · cost · rationale")
     terraform = Terraform("Terraform\napplies on human merge")
